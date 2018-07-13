@@ -46,7 +46,7 @@ async def main():
 
         for key in keys:
             await app.db.delete(key)
-        app.db.close()
+        await app.db.close()
 
     async def close_websockets(app):
 
@@ -68,8 +68,8 @@ async def main():
         context_processors=[static_processor, auth_processor])
 
     # route part
-    for route in routes:
-        app.router.add_route(route[0], route[1], route[2], name=route[3])
+    for (method, path, handler, name) in routes:
+        app.router.add_route(method, path, handler, name=name)
     app['static_root_url'] = '/static'
     app.router.add_static('/static', 'static', name='static')
 

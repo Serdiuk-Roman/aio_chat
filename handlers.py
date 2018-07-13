@@ -22,19 +22,13 @@ class LoginView(web.View):
         response = web.HTTPFound('/')
 
         data = await self.request.post()
-        if len(data) == 2:
-            try:
-                data['name']
-                data['pass']
-            except KeyError as e:
-                print(e)
-                return {'title': 'Authentication',
-                        'error': 'Do you use a web browser?'}
+        if not data.get('name', False) or not data.get('pass', False):
+            return {'title': 'Authentication',
+                    'error': 'Do you use a web browser?'}
 
         red_db = self.request.app.db
 
-        users = await red_db.zrange('chat:users')
-        if data['name'] in users:
+        if await red_db.sismember('chat:users', data['name']):
             return {'title': 'Authentication',
                     'error': 'Username already in the system'}
 
@@ -85,10 +79,10 @@ async def ws_handler(request):
     r = request.app.db
 
     try:
-        count = int(await r.zcount(chat_users))
+        count = int(await r.scard(chat_users))
 
-        await r.zadd(chat_users, count + 1, current_user)
-        users = await r.zrange(chat_users)
+        await r.sadd(chat_users, current_user)
+        users = await r.smembers(chat_users)
         chat_waiters.broadcast(json.dumps({'user_list': users}))
 
         data = {
@@ -125,8 +119,8 @@ async def ws_handler(request):
             await ws.close()
             chat_waiters.remove(ws)
 
-        await r.zrem(chat_users, current_user)
-        users = await r.zrange(chat_users)
+        await r.srem(chat_users, current_user)
+        users = await r.smembers(chat_users)
         chat_waiters.broadcast(json.dumps({'user_list': users}))
 
     return ws
